@@ -1,31 +1,66 @@
-// Follow this setup guide to integrate the Deno language server with your editor:
-// https://deno.land/manual/getting_started/setup_your_environment
-// This enables autocomplete, go to definition, etc.
-
 // Setup type definitions for built-in Supabase Runtime APIs
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-console.log("Hello from Functions!");
+import type { ArticleFetchRequest } from "./types/request.ts";
+import {
+  createErrorResponse,
+  createValidationErrorResponse,
+} from "../_shared/utils/response-helpers.ts";
+import { handleArticleFetch } from "./handlers/article-fetch-handler.ts";
 
-Deno.serve(async (req) => {
-  const { name } = await req.json();
-  const data = {
-    message: `Hello ${name}!`,
-  };
+console.info("Article Fetcher server started");
 
-  return new Response(JSON.stringify(data), {
-    headers: { "Content-Type": "application/json" },
-  });
+/**
+ * Validate the incoming request payload
+ */
+function validateRequest(
+  requestBody: unknown
+): requestBody is ArticleFetchRequest {
+  if (!requestBody || typeof requestBody !== "object") {
+    return false;
+  }
+
+  const { sourceBatch } = requestBody as any;
+
+  return !!(
+    sourceBatch &&
+    sourceBatch.sources &&
+    Array.isArray(sourceBatch.sources) &&
+    sourceBatch.batchId &&
+    sourceBatch.topicName
+  );
+}
+
+/**
+ * Main Deno serve handler - clean and focused
+ */
+Deno.serve(async (req: Request): Promise<Response> => {
+  try {
+    // Parse request body
+    const requestBody = await req.json();
+
+    // Validate request
+    if (!validateRequest(requestBody)) {
+      return createValidationErrorResponse(
+        "Invalid sourceBatch object or required fields missing"
+      );
+    }
+
+    // Process the request
+    const result = await handleArticleFetch(requestBody.sourceBatch);
+
+    // Return success response
+    return new Response(JSON.stringify(result), {
+      headers: {
+        "Content-Type": "application/json",
+        Connection: "keep-alive",
+      },
+    });
+  } catch (error) {
+    console.error("Error in article-fetcher:", error);
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    return createErrorResponse(errorMessage, 500);
+  }
 });
-
-/* To invoke locally:
-
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
-
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/rss-feed-article-fetcher' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
-
-*/
