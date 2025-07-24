@@ -1,0 +1,28 @@
+# Ignore build artifacts and dependencies for Supabase Edge Functions
+supabase/.temp/
+supabase/functions/**/node_modules/
+supabase/functions/**/dist/
+supabase/functions/**/.deno/
+supabase/functions/**/.output/
+supabase/functions/**/.cache/
+supabase/functions/**/.vscode/
+supabase/functions/**/.DS_Store
+
+# Ignore local environment and secrets files
+supabase/.env
+supabase/.env.local
+supabase/secrets.env
+
+# Ignore logs and debug output
+supabase/functions/**/*.log
+
+# Ignore shared utility build output
+supabase/functions/_shared/node_modules/
+supabase/functions/_shared/dist/
+supabase/functions/_shared/.deno/
+supabase/functions/_shared/.output/
+supabase/functions/_shared/.cache/
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
